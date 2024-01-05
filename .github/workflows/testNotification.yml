@@ -1,0 +1,41 @@
+---
+name: Security Credential Scan
+on: 
+  workflow_call:
+jobs:
+  Failure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Trigger Failure
+        run: |
+          return 1
+  notification_job:
+    if: failure()
+    needs: [Failure]
+    name: Security Slack Notification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+          JOB_OUTPUTS: ${{ toJson(needs)}}
+          SLACK_URL: ${{ secrets.SECURITY_CODESECURITY_SLACK }}
+        run: |
+          EVENT_NAME=$(echo $GITHUB_CONTEXT | jq -r .event_name ) 
+
+          case $EVENT_NAME in 
+          workflow_dispatch)
+            TITLE="SAST Scan failed on $EVENT_NAME event at $(echo $GITHUB_CONTEXT | jq -r .event.repository.html_url)"
+            ;;
+          pull_request)
+            TITLE="SAST Scan failed on $EVENT_NAME event at $(echo $GITHUB_CONTEXT | jq -r .event.pull_request._links.html.href)"
+            ;;
+          esac
+
+          SLACK_MSG="$TITLE\nScan results\n\`\`\`$(echo $JOB_OUTPUTS | sed 's/"/\\"/g')\`\`\`"
+          SLACK_MSG='{"text":"'$SLACK_MSG'"}'
+          curl -X POST -H 'Content-type: application/json' --data "$SLACK_MSG" $SLACK_URL
