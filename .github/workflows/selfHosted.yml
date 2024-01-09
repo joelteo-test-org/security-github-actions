@@ -1,0 +1,11 @@
+name: Self Hosted Runner test 
+on:
+  workflow_dispatch:
+jobs:
+  update1Password:
+    runs-on: self-hosted
+    steps:
+      - name: Curl internal job
+        env: 
+          INTERNALURL: ${{ secrets.internalurl }}
+        run: curl $INTERNALURL
